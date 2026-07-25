@@ -1,0 +1,89 @@
+# NEAT configuration for AI Driving Simulation
+# This file defines the parameters for the NEAT evolutionary algorithm.
+
+[NEAT]
+fitness_criterion     = max
+fitness_threshold     = 10000.0
+pop_size              = 10
+reset_on_extinction   = True
+no_fitness_termination = False
+
+[DefaultGenome]
+# Node activation options
+activation_default      = tanh
+activation_mutate_rate  = 0.0
+activation_options      = tanh
+
+# Node aggregation options
+aggregation_default     = sum
+aggregation_mutate_rate = 0.0
+aggregation_options     = sum
+
+# Node bias options
+bias_init_mean          = 0.0
+bias_init_stdev         = 1.0
+bias_max_value          = 30.0
+bias_min_value          = -30.0
+bias_mutate_power       = 0.5
+bias_mutate_rate        = 0.7
+bias_replace_rate       = 0.1
+
+# Genome compatibility options
+compatibility_disjoint_coefficient = 1.0
+compatibility_weight_coefficient   = 0.5
+
+# Connection add/remove rates
+conn_add_prob           = 0.5
+conn_delete_prob        = 0.1
+
+# Node enable/disable rates
+enabled_default         = True
+enabled_mutate_rate     = 0.01
+
+# Feed forward or recurrent
+feed_forward            = True
+
+# Network parameters - 8 inputs (7 sensors + speed) -> 6 hidden -> 2 outputs (steering, throttle)
+num_hidden              = 6
+num_inputs              = 8
+num_outputs             = 2
+
+# Initial connection: start with all-to-all connections for a head start
+initial_connection      = partial_nodirect 0.5
+
+# Node add/remove rates
+node_add_prob           = 0.2
+node_delete_prob        = 0.1
+
+# Response options
+response_init_mean      = 1.0
+response_init_stdev     = 0.0
+response_max_value      = 30.0
+response_min_value      = -30.0
+response_mutate_power   = 0.0
+response_mutate_rate    = 0.0
+response_replace_rate   = 0.0
+
+# Weight options
+weight_init_mean        = 0.0
+weight_init_stdev       = 2.0
+weight_max_value        = 30.0
+weight_min_value        = -30.0
+weight_mutate_power     = 1.0
+weight_mutate_rate      = 0.8
+weight_replace_rate     = 0.1
+
+[DefaultSpeciesSet]
+# Higher threshold = more genomes per species (reduces species count)
+compatibility_threshold = 6.0
+
+[DefaultStagnation]
+species_fitness_func = max
+max_stagnation       = 20
+species_elitism      = 2
+
+[DefaultReproduction]
+elitism            = 2
+survival_threshold = 0.2
+# Allow species with just 1 member to prevent reproduction conflicts
+min_species_size   = 1
