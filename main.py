@@ -733,11 +733,18 @@ class App:
                 preview = self._editor_preview
                 ox, oy = 0, 0
 
-                # Draw the preview road surface (semi-transparent)
-                road_poly = preview._outer_boundary + preview._inner_boundary[::-1]
-                road_poly_screen = [(x + ox, y + oy) for (x, y) in road_poly]
+                # Draw the preview road surface as individual quads (robust against overlap)
                 road_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-                pygame.draw.polygon(road_surf, (60, 60, 60, 160), road_poly_screen)
+                n = len(preview._outer_boundary)
+                for i in range(n):
+                    j = (i + 1) % n
+                    quad = [
+                        (preview._outer_boundary[i][0] + ox, preview._outer_boundary[i][1] + oy),
+                        (preview._outer_boundary[j][0] + ox, preview._outer_boundary[j][1] + oy),
+                        (preview._inner_boundary[j][0] + ox, preview._inner_boundary[j][1] + oy),
+                        (preview._inner_boundary[i][0] + ox, preview._inner_boundary[i][1] + oy),
+                    ]
+                    pygame.draw.polygon(road_surf, (60, 60, 60, 160), quad)
                 self.screen.blit(road_surf, (0, 0))
 
                 # Draw preview walls

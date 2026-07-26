@@ -12,15 +12,29 @@ import pygame
 class Track:
     """A smooth race track defined by wall segments, checkpoints, and a spawn point."""
 
-    # Colors
+    # Colors - Road & Track
     ROAD_COLOR = (60, 60, 60)
-    ROAD_EDGE_COLOR = (100, 100, 100)
-    WALL_COLOR = (200, 50, 50)
-    WALL_WIDTH = 5
+    ROAD_EDGE_COLOR = (200, 200, 200)  # Bright white edge lines
+    ROAD_EDGE_WIDTH = 3
+
+    # Colors - Walls & Curbs
+    WALL_COLOR = (40, 40, 40)  # Dark wall line
+    WALL_WIDTH = 2
+    CURB_RED = (210, 25, 25)
+    CURB_WHITE = (235, 235, 235)
+    CURB_WIDTH = 4
+    CURB_SEGMENTS_PER_BAND = 4  # Number of segments per curb color band
+
+    # Colors - Grass
+    GRASS_COLOR = (30, 85, 30)
+    GRASS_STRIPE_LIGHT = (35, 92, 35)
+    GRASS_STRIPE_DARK = (26, 75, 26)
+    GRASS_STRIPE_INTERVAL = 36  # Pixels between grass stripe centers
+
+    # Colors - Other
     CHECKPOINT_COLOR = (255, 255, 0)
     CHECKPOINT_PASSED_COLOR = (0, 200, 0)
     SPAWN_COLOR = (0, 255, 100)
-    GRASS_COLOR = (30, 80, 30)
 
     def __init__(self):
         """Initialize the track with smooth walls, checkpoints, and spawn point."""
@@ -28,53 +42,39 @@ class Track:
         self.height = 800
 
         # ---- Track geometry parameters ----
-        # The track is a smooth oval with two long straights and two semi-circular curves.
-        # Centre of the oval.
-        oval_cx, oval_cy = 600, 400
-        # How far the straights extend left/right from centre.
-        straight_half = 200          # each straight is 400 px long
-        # Radius of the semicircular curves (at the centre line).
-        curve_r = 220
-        # Half-width of the road (from centre line to one wall).
-        half_width = 40
+        # A single continuous closed-loop circuit with smooth, wide corners.
+        # Defined via waypoints and smoothed.
+        half_width = 40  # Road width (50px total) - safe for tight curves
 
-        # ---- Generate centre-line points (clockwise) ----
-        self._center_points = []   # list of (x, y)
+        # ---- Waypoints defining the centre line (clockwise) ----
+        # Minimal perimeter circuit. Uses very few waypoints with
+        # minimal smoothing to guarantee zero self-intersection.
+        waypoints = [
+            (100, 740),   # Start/bottom-left
+            (600, 740),   # Bottom straight
+            (1050, 735),  # End of main straight
 
-        # ① Top straight  — left ➔ right (exclude final point; the curve covers it)
-        x0, x1 = oval_cx - straight_half, oval_cx + straight_half
-        y_top = oval_cy - curve_r
-        steps = 10
-        for i in range(steps - 1):
-            t = i / (steps - 1) if steps > 1 else 0
-            self._center_points.append((x0 + t * (x1 - x0), y_top))
+            (1100, 690),  # Right turn entry
+            (1115, 600),  # Right side up
+            (1110, 500),  # Right side
+            (1080, 400),  # Right side top
 
-        # ② Right curve — semicircle from -90° to +90°
-        right_cx = oval_cx + straight_half
-        for i in range(21):       # 0…20 → 20 segments
-            angle = -math.pi / 2 + i * math.pi / 20
-            self._center_points.append((
-                right_cx + curve_r * math.cos(angle),
-                oval_cy + curve_r * math.sin(angle),
-            ))
+            (1000, 335),  # Top-right
+            (800, 320),   # Top straight
+            (500, 325),   # Top straight
+            (250, 335),   # Top-left
 
-        # ③ Bottom straight — right ➔ left (exclude final point; the curve covers it)
-        x0, x1 = oval_cx + straight_half, oval_cx - straight_half
-        y_bot = oval_cy + curve_r
-        steps = 10
-        for i in range(steps - 1):
-            t = i / (steps - 1) if steps > 1 else 0
-            self._center_points.append((x0 + t * (x1 - x0), y_bot))
+            (140, 400),   # Left side down
+            (120, 550),   # Left side
+            (110, 680),   # Left side bottom
 
-        # ④ Left curve — semicircle from +90° to +270°
-        left_cx = oval_cx - straight_half
-        for i in range(21):
-            angle = math.pi / 2 + i * math.pi / 20
-            self._center_points.append((
-                left_cx + curve_r * math.cos(angle),
-                oval_cy + curve_r * math.sin(angle),
-            ))
+            (105, 740),   # Final into straight
+        ]
 
+        # ---- Minimal smoothing to prevent clustering ----
+        self._center_points = Track._smooth_closed_path(waypoints,
+                                                        subdivisions=1,
+                                                        passes=2)
         n = len(self._center_points)
 
         # ---- Compute outward normals and build wall segments ----
@@ -112,30 +112,23 @@ class Track:
         self._outer_boundary = outer_boundary
         self._inner_boundary = inner_boundary
 
-        # ---- Checkpoints (span from inner → outer wall) ----
-        # Pick indices along the centre line where checkpoints sit.
-        # Top-straight centre, right-curve centre, bottom-straight centre,
-        # left-curve centre.
-        cp_indices = [
-            len(self._center_points) // 8,          # top straight middle
-            len(self._center_points) * 3 // 8,      # right curve middle
-            len(self._center_points) * 5 // 8,      # bottom straight middle
-            len(self._center_points) * 7 // 8,      # left curve middle
-        ]
+        # ---- Checkpoints evenly spaced around the track ----
+        num_cp = max(4, min(8, n // 10))
+        cp_indices = [i * n // num_cp for i in range(num_cp)]
         self.checkpoints = []
         for idx in cp_indices:
             self.checkpoints.append((
                 (inner_boundary[idx][0], inner_boundary[idx][1]),
                 (outer_boundary[idx][0], outer_boundary[idx][1]),
             ))
-
         self.num_checkpoints = len(self.checkpoints)
         self.total_checkpoints = self.num_checkpoints
 
-        # ---- Spawn point — middle of the top straight, facing right ----
-        self.spawn_x = oval_cx
-        self.spawn_y = y_top
-        self.spawn_angle = 0.0
+        # ---- Spawn point — first smoothed centre point, facing right ----
+        # Use the smoothed centre line so the car always spawns between the walls
+        self.spawn_x, self.spawn_y = self._center_points[0]
+        tx, ty = self._center_points[1 % n]
+        self.spawn_angle = math.atan2(ty - self.spawn_y, tx - self.spawn_x)
 
         # ---- Centre line for dashed road markings ----
         self.center_line = self._center_points[:]
@@ -219,12 +212,10 @@ class Track:
         track.num_checkpoints = len(track.checkpoints)
         track.total_checkpoints = track.num_checkpoints
 
-        # ---- 4. Spawn at the first waypoint, facing the second ----
-        sx, sy = waypoints[0]
-        tx, ty = waypoints[1] if len(waypoints) > 1 else waypoints[0]
-        track.spawn_x = sx
-        track.spawn_y = sy
-        track.spawn_angle = math.atan2(ty - sy, tx - sx)
+        # ---- 4. Spawn at the first smoothed centre point, facing the second ----
+        track.spawn_x, track.spawn_y = track._center_points[0]
+        tx, ty = track._center_points[1] if len(track._center_points) > 1 else track._center_points[0]
+        track.spawn_angle = math.atan2(ty - track.spawn_y, tx - track.spawn_x)
 
         # ---- 5. Centre line for road markings ----
         track.center_line = smoothed[:]
@@ -285,43 +276,99 @@ class Track:
         if passed_checkpoints is None:
             passed_checkpoints = set()
 
-        # Grass
+        n = len(self._outer_boundary)
+
+        # ============================================================
+        # 1. Grass base with texture stripes
+        # ============================================================
         surface.fill(self.GRASS_COLOR)
 
-        # --- Road surface (filled polygon) ---
-        road_poly = self._outer_boundary + self._inner_boundary[::-1]
-        # Convert to screen coordinates
-        road_poly_screen = [(x + ox, y + oy) for (x, y) in road_poly]
-        pygame.draw.polygon(surface, self.ROAD_COLOR, road_poly_screen)
+        # Draw subtle diagonal grass stripes (mown-pattern look)
+        # These only show through on the grass since the road is drawn on top
+        for offset in range(-self.height * 2, self.width + self.height * 2, self.GRASS_STRIPE_INTERVAL):
+            stripe_idx = (offset // self.GRASS_STRIPE_INTERVAL) % 2
+            color = self.GRASS_STRIPE_LIGHT if stripe_idx == 0 else self.GRASS_STRIPE_DARK
+            start_x = ox + offset
+            start_y = oy
+            end_x = ox + offset - self.height
+            end_y = oy + self.height
+            pygame.draw.line(surface, color,
+                             (start_x, start_y),
+                             (end_x, end_y), 4)
 
-        # --- Road edge markings (thin lighter lines) ---
-        # Outer edge
-        for i in range(len(self._outer_boundary)):
-            p1 = self._outer_boundary[i]
-            p2 = self._outer_boundary[(i + 1) % len(self._outer_boundary)]
-            pygame.draw.line(surface, self.ROAD_EDGE_COLOR,
-                             (p1[0] + ox, p1[1] + oy),
-                             (p2[0] + ox, p2[1] + oy), 2)
-        # Inner edge
-        for i in range(len(self._inner_boundary)):
-            p1 = self._inner_boundary[i]
-            p2 = self._inner_boundary[(i + 1) % len(self._inner_boundary)]
-            pygame.draw.line(surface, self.ROAD_EDGE_COLOR,
-                             (p1[0] + ox, p1[1] + oy),
-                             (p2[0] + ox, p2[1] + oy), 2)
+        # ============================================================
+        # 2. Road surface (individual quads - robust against overlap)
+        # ============================================================
+        for i in range(n):
+            j = (i + 1) % n
+            quad = [
+                (self._outer_boundary[i][0] + ox, self._outer_boundary[i][1] + oy),
+                (self._outer_boundary[j][0] + ox, self._outer_boundary[j][1] + oy),
+                (self._inner_boundary[j][0] + ox, self._inner_boundary[j][1] + oy),
+                (self._inner_boundary[i][0] + ox, self._inner_boundary[i][1] + oy),
+            ]
+            pygame.draw.polygon(surface, self.ROAD_COLOR, quad)
 
-        # --- Dashed centre line ---
+        # ============================================================
+        # 3. Curbs (alternating red/white strips along both edges)
+        # ============================================================
+        for i in range(n):
+            j = (i + 1) % n
+            is_red = (i // self.CURB_SEGMENTS_PER_BAND) % 2 == 0
+            curb_color = self.CURB_RED if is_red else self.CURB_WHITE
+
+            # Outer curb
+            p1_o = self._outer_boundary[i]
+            p2_o = self._outer_boundary[j]
+            pygame.draw.line(surface, curb_color,
+                             (p1_o[0] + ox, p1_o[1] + oy),
+                             (p2_o[0] + ox, p2_o[1] + oy),
+                             self.CURB_WIDTH)
+
+            # Inner curb
+            p1_i = self._inner_boundary[i]
+            p2_i = self._inner_boundary[j]
+            pygame.draw.line(surface, curb_color,
+                             (p1_i[0] + ox, p1_i[1] + oy),
+                             (p2_i[0] + ox, p2_i[1] + oy),
+                             self.CURB_WIDTH)
+
+        # ============================================================
+        # 4. White edge lines (on top of curbs for crisp road boundary)
+        # ============================================================
+        for i in range(n):
+            j = (i + 1) % n
+            # Outer edge
+            p1_o = self._outer_boundary[i]
+            p2_o = self._outer_boundary[j]
+            pygame.draw.line(surface, self.ROAD_EDGE_COLOR,
+                             (p1_o[0] + ox, p1_o[1] + oy),
+                             (p2_o[0] + ox, p2_o[1] + oy),
+                             self.ROAD_EDGE_WIDTH)
+            # Inner edge
+            p1_i = self._inner_boundary[i]
+            p2_i = self._inner_boundary[j]
+            pygame.draw.line(surface, self.ROAD_EDGE_COLOR,
+                             (p1_i[0] + ox, p1_i[1] + oy),
+                             (p2_i[0] + ox, p2_i[1] + oy),
+                             self.ROAD_EDGE_WIDTH)
+
+        # ============================================================
+        # 5. Dashed centre line (yellow-white)
+        # ============================================================
         for i in range(len(self._center_points)):
             p1 = self._center_points[i]
             p2 = self._center_points[(i + 1) % len(self._center_points)]
             self._draw_dashed_line(
-                surface, (200, 200, 100),
+                surface, (220, 220, 80),
                 (p1[0] + ox, p1[1] + oy),
                 (p2[0] + ox, p2[1] + oy),
-                3, 15, 10,
+                3, 18, 12,
             )
 
-        # --- Walls (red) ---
+        # ============================================================
+        # 6. Wall lines (thin dark boundary)
+        # ============================================================
         for wall in self.walls:
             p1, p2 = wall
             pygame.draw.line(surface, self.WALL_COLOR,
@@ -329,7 +376,9 @@ class Track:
                              (p2[0] + ox, p2[1] + oy),
                              self.WALL_WIDTH)
 
-        # --- Checkpoints ---
+        # ============================================================
+        # 7. Checkpoints
+        # ============================================================
         for i, cp in enumerate(self.checkpoints):
             p1, p2 = cp
             if i in passed_checkpoints:
@@ -344,7 +393,9 @@ class Track:
                              (p2[0] + ox, p2[1] + oy), 4)
             surface.blit(cp_surf, (0, 0))
 
-        # --- Spawn indicator ---
+        # ============================================================
+        # 8. Spawn indicator
+        # ============================================================
         pygame.draw.circle(
             surface, self.SPAWN_COLOR,
             (int(self.spawn_x + ox), int(self.spawn_y + oy)), 8, 2,
@@ -358,7 +409,9 @@ class Track:
             (int(end_x + ox), int(end_y + oy)), 3,
         )
 
-        # --- Checkpoint labels ---
+        # ============================================================
+        # 9. Checkpoint labels
+        # ============================================================
         font = pygame.font.SysFont('Arial', 16)
         for i, cp in enumerate(self.checkpoints):
             p1, _ = cp

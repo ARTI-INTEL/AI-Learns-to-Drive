@@ -18,7 +18,7 @@ class SimulationConfig:
     """Configuration parameters for the simulation."""
 
     # Time limits
-    MAX_STEPS_PER_GEN = 300        # Max frames per generation
+    MAX_STEPS_PER_GEN = 1000        # Max frames per generation
     STUCK_TIME_LIMIT = 150          # Frames before car is considered stuck
     LAPS_FOR_COMPLETION = 1         # Laps needed to "finish"
 
