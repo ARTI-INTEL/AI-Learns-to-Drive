@@ -1,0 +1,8 @@
+# AI Learns to Drive — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Pygame — graphics, input handling, window management
+pygame>=2.5.0
+
+# NEAT-Python — NeuroEvolution of Augmenting Topologies
+neat-python>=2.0.0
