@@ -44,34 +44,50 @@ class Track:
         # ---- Track geometry parameters ----
         # A single continuous closed-loop circuit with smooth, wide corners.
         # Defined via waypoints and smoothed.
-        half_width = 40  # Road width (50px total) - safe for tight curves
+        half_width = 48  # Road width (~96px total) - wide banking like Daytona
 
         # ---- Waypoints defining the centre line (clockwise) ----
-        # Minimal perimeter circuit. Uses very few waypoints with
-        # minimal smoothing to guarantee zero self-intersection.
+        # Daytona International Speedway tri-oval shape:
+        #   - Front stretch: tri-oval bulge at bottom (car travels left)
+        #   - Turns 1 & 2: sweeping banking on the left side (car goes up)
+        #   - Back stretch: long straight at top (car travels right)
+        #   - Turns 3 & 4: sweeping banking on the right side (car goes down)
         waypoints = [
-            (100, 740),   # Start/bottom-left
-            (600, 740),   # Bottom straight
-            (1050, 735),  # End of main straight
+            # === FRONT STRETCH (tri-oval bulge at bottom) ===
+            (600, 740),   # Start/Finish — apex of tri-oval (lowest point, bulging down)
+            (500, 730),   # Front stretch left of center (curving inward)
+            (400, 710),   # Front stretch curving up toward turn 1
+            (300, 680),   # Front stretch approaching turn 1
 
-            (1100, 690),  # Right turn entry
-            (1115, 600),  # Right side up
-            (1110, 500),  # Right side
-            (1080, 400),  # Right side top
+            # === TURNS 1 & 2 (left banking, car goes UP) ===
+            (210, 620),   # Turn 1 entry
+            (140, 520),   # Turn 1 apex
+            (105, 400),   # Between turns
+            (120, 275),   # Turn 2 apex
+            (170, 175),   # Turn 2 exit
 
-            (1000, 335),  # Top-right
-            (800, 320),   # Top straight
-            (500, 325),   # Top straight
-            (250, 335),   # Top-left
+            # === BACK STRETCH (long straight at top, car goes RIGHT) ===
+            (270, 120),   # Back stretch entry
+            (420, 90),    # Back stretch
+            (600, 85),    # Back stretch center
+            (780, 90),    # Back stretch
+            (930, 120),   # Back stretch exit
 
-            (140, 400),   # Left side down
-            (120, 550),   # Left side
-            (110, 680),   # Left side bottom
+            # === TURNS 3 & 4 (right banking, car goes DOWN) ===
+            (1030, 175),  # Turn 3 entry
+            (1080, 275),  # Turn 3 apex
+            (1095, 400),  # Between turns
+            (1080, 520),  # Turn 4 apex
+            (1030, 620),  # Turn 4 exit
 
-            (105, 740),   # Final into straight
+            # === FRONT STRETCH return (tri-oval) ===
+            (930, 680),   # Front stretch right side
+            (820, 710),   # Front stretch curving inward toward start
+            (700, 730),   # Front stretch right of center
+            (600, 740),   # Return to Start/Finish
         ]
 
-        # ---- Minimal smoothing to prevent clustering ----
+        # ---- Light smoothing to preserve tri-oval character ----
         self._center_points = Track._smooth_closed_path(waypoints,
                                                         subdivisions=1,
                                                         passes=2)
