@@ -20,6 +20,7 @@ class SimulationConfig:
     # Time limits
     MAX_STEPS_PER_GEN = 1000        # Max frames per generation
     STUCK_TIME_LIMIT = 150          # Frames before car is considered stuck
+    SHOWCASE_FRAME_LIMIT = 600      # Max frames for post-generation showcase
     LAPS_FOR_COMPLETION = 1         # Laps needed to "finish"
 
     # Rewards and punishments (user's recommended values)

@@ -111,6 +111,7 @@ class App:
         self._training_total_count = 0
         self._training_finished = False
         self._showcase_best = []     # Best cars from last gen to showcase
+        self._showcase_frames_elapsed = 0  # Frames elapsed in current showcase phase
 
         # ---- Track Editor ----
         self._editor_active = False
@@ -477,6 +478,9 @@ class App:
         # ---- Print generation summary to terminal (during showcase, not eval) ----
         self._print_gen_summary(gen_stats)
 
+        # Reset showcase timer
+        self._showcase_frames_elapsed = 0
+
         self._gen_phase = 'showcase'
 
     def _setup_showcase_from_population(self):
@@ -642,13 +646,15 @@ class App:
 
             # Check if it's time to start next generation
             if self._gen_phase == 'showcase':
-                # Check if all showcase cars have crashed
+                self._showcase_frames_elapsed += 1
+
+                # Check if all showcase cars have crashed OR time limit reached
                 all_dead = all(
                     not s['car'].alive for s in self._showcase_best
                 )
-                if all_dead and not self._training_interrupted:
-                    # Wait a moment then start next gen
-                    pass  # Will be restarted on next key press or auto
+                time_up = self._showcase_frames_elapsed >= SimulationConfig.SHOWCASE_FRAME_LIMIT
+                if (all_dead or time_up) and not self._training_interrupted:
+                    self._run_next_generation()
 
         elif self._gen_phase == 'evaluating':
             # Evaluating — the callback handles everything
@@ -912,8 +918,11 @@ class App:
                 ]
             elif phase == 'showcase':
                 alive = sum(1 for s in self._showcase_best if s['car'].alive)
+                remaining = max(0, SimulationConfig.SHOWCASE_FRAME_LIMIT - self._showcase_frames_elapsed)
+                remaining_secs = remaining / 60  # Approximate at normal speed
                 lines += [
                     f"Shown:   {alive}/{len(self._showcase_best)}",
+                    f"Next:    ~{remaining_secs:.0f}s (Space to skip)",
                 ]
             lines.append(f"Speed:   {self.speed_multiplier:.1f}x")
 
